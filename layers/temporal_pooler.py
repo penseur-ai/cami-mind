@@ -10,8 +10,9 @@ class TemporalPooler:
     preceding layer.
     """
 
-    def __init__(self, cell, columnDim, cellsPerColumn, maxSegmentsPerCell, maxSynapsesPerSegment, minActive,
-                 activationThreshold, minPermanence, permanenceInc, permanenceDec, seed=45):
+    def __init__(self, cell, columnDim, cellsPerColumn, maxSegmentsPerCell, maxSynapsesPerSegment,
+                 minActive, activationThreshold, minPermanence, initialPermanence, maxNewSynapses,
+                 permanenceInc, permanenceDec, seed=45):
 
         np.random.seed(seed)
 
@@ -23,11 +24,13 @@ class TemporalPooler:
         self._minActive = minActive
         self._activationThreshold = activationThreshold
         self._minPermanence = minPermanence
+        self._initialPermanence = initialPermanence
+        self._maxNewSynapses = maxNewSynapses
         self._permanenceInc = permanenceInc
         self._permanenceDec = permanenceDec
 
         self._cells = [[cell((columnDim, cellsPerColumn), minPermanence, activationThreshold,
-                            minActive, maxSegmentsPerCell, maxSynapsesPerSegment)
+                             minActive, maxSegmentsPerCell, maxSynapsesPerSegment)
                         for j in range(cellsPerColumn)]
                        for i in range(columnDim)]
 
@@ -72,66 +75,75 @@ class TemporalPooler:
         columns = np.zeros((self._columnDim, self._cellsPerColumn), dtype=np.int8)
         columns[activeColumns, :] = 1
         winnerCells = activeCells = np.logical_and(columns, predictiveStates)
-        temp = np.sum(self._activeCells, axis=1) > 0
-        burstingColumns = np.where(temp != columns[0])[0]
+        self._winnerCells = (np.flatnonzero(winnerCells)).tolist()
+        predictedCells = np.transpose(np.nonzero(activeCells))
+        activeCellsPerColumn = np.sum(self._activeCells, axis=1) > 0
+        burstingColumns = np.where(activeCellsPerColumn != columns[0])[0]
         activeCells[burstingColumns, :] = 1
-        self._activeCells = np.nonzero(activeCells.flatten())[0]
-        self._findWinnerCells(winnerCells, burstingColumns)
+        self._activeCells = (np.flatnonzero(activeCells)).tolist()
+        self._findWinnerCells(burstingColumns, prevWinnerCells, learn)
 
         if learn:
-            pass  # with winner cells?
+            for i, j in predictedCells:  # for active predicted cells
+                self._cells[i][j].adaptActiveSegments(prevActiveCells,
+                                                      self._maxNewSynapses, prevWinnerCells,self._initialPermanence,
+                                                      self._permanenceInc, self._permanenceDec)
+
+            inactivePredictedCells = np.logical_and(np.logical_not(columns), predictiveStates)
+            inactivePredictedCells = np.transpose(np.nonzero(inactivePredictedCells))
+            for i, j in inactivePredictedCells:
+                self._cells[i][j].punishMatchingSegments(prevActiveCells, self._permanenceDec)
 
         for col in self._cells:
             for cell in col:
                 cell.activateSegments(self._activeCells)
 
         predictiveStates = np.array([[cell.predictive() for cell in col] for col in self._cells], dtype=np.int8)
-        predictiveCells = np.nonzero(predictiveStates.flatten())[0]
+        predictiveCells = np.flatnonzero(predictiveStates)
 
         return self._activeCells, predictiveCells
 
-
-        predictiveStates = (np.sum(self._activeSegments, axis=2) > 0).astype(np.int8)
-        columns = np.zeros((self._columnDim, self._cellsPerColumn), dtype=np.int8)
-        columns[activeColumns, :] = 1
-        self._winnerCells = self._activeCells = np.logical_and(columns, predictiveStates)
-        temp = np.sum(self._activeCells, axis=1) > 0
-        burstingColumns = np.where(temp != columns[0])[0]
-        self._activeCells[burstingColumns, :] = 1
-
-        self._findWinnerCells(burstingColumns)  # uses previous matching segments
-
-        connectedSynapses = (self._permanences >= self._minPermanence) * self._activeCells
-        self._activeSegments = np.sum(connectedSynapses, axis=(3, 4)) >= self._activationThreshold
-        # self._predictedCells = (np.sum(self._activeSegments, axis=2) > 0).astype(np.int8)
-
-        matchingSynapses = self._potentials * self._activeCells  # self._potentials should equal (self._permanences > 0)
-        self._matchingSegments = np.sum(matchingSynapses, axis=(3, 4)) >= self._minActive
-
-        if learn:
-            activeUpdates = columns * (self._permanenceInc + self._permanenceDec) - self._permanenceDec
-            inactiveUdpates = columns * self._permanenceDec
-
-        """
-        Return array of indices instead of ndarrays? Easier to persist
-        But which is worse? the extra computation time or extra storage
-        If you save indices each compute cycle requires converting indices into ndarrays and back again as well as
-        reshape operations
-        """
-
-        return self._activeCells, predictiveCells
-
-    def _findWinnerCells(self, winnerCells, burstingColumns):
+    def _findWinnerCells(self, burstingColumns, prevWinnerCells, learn):
         """
         Find winner cell in each bursting column
                 Cell with most active matching segment from t-l OR
                 Cell with least number of segments
-        :param winnerCells: 
         :param burstingColumns: 
+        :param prevWinnerCells: 
+        :param learn: 
         :return: 
         """
-        self.winnerCells = np.nonzero(winnerCells.flatten())[0]
-        return NotImplementedError("findWinnerCells not implemented")
+
+        for column in burstingColumns:
+            cellActivePotentials = []  # sequence of counts of active matching potentials for each cell
+            maxActivePotentials = []  # max numbers of active matching potentials for each cell
+            for i in range(self._cellsPerColumn):
+                cellActivePotentials.append(self._cells[column][i].getActivePotentials(self._activeCells))
+                maxActivePotentials.append(max(cellActivePotentials[-1]))
+
+            if np.max(maxActivePotentials) > 0:
+                # winner cell is cell with most active matching segment
+                winnerCell = np.array(maxActivePotentials).argmax()
+                if learn:
+                    segment = np.argmax(cellActivePotentials[winnerCell])
+                    self._cells[column][winnerCell].adaptMatchingSegment(segment,
+                                                                         prevWinnerCells,
+                                                                         self._maxNewSynapses,
+                                                                         self._initialPermanence,
+                                                                         self._permanenceInc,
+                                                                         self._permanenceDec)
+
+            else:
+                # winner cell is cell with least number of segments
+                segmentCounts = [self._cells[column][i].getNumberOfSegments() for i in range(self._cellsPerColumn)]
+                winnerCell = np.array(segmentCounts).argmin()
+
+                if learn:
+                    self._cells[column][winnerCell].createSegment(self._maxNewSynapses,
+                                                                  prevWinnerCells,
+                                                                  self._initialPermanence)
+
+            self._winnerCells.append(int(column * self._cellsPerColumn + winnerCell))
 
     def getWinnerCells(self, asarray=False):
         """
@@ -169,7 +181,7 @@ class TemporalPooler:
         if asarray:
             return predictiveStates.flatten()
         else:
-            return np.nonzero(predictiveStates.flatten())[0]
+            return np.flatnonzero(predictiveStates)
 
     def getPredictedColumns(self, asarray=True):
         """
@@ -182,7 +194,7 @@ class TemporalPooler:
         if asarray:
             return prediction
         else:
-            return np.nonzero(prediction)[0]
+            return np.flatnonzero(prediction)
 
     def getWidth(self):
         """Returns the total number of cells in the region"""
