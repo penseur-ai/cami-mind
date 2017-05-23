@@ -1,6 +1,7 @@
 import numpy as np
 
-class SpatialPooler():
+
+class SpatialPooler:
     """
     This class implements the Spatial Pooling algorithm forming sparse distributed representations of sensory inputs
     """
@@ -40,7 +41,6 @@ class SpatialPooler():
                                                           scale=0.25*minPermanence,
                                                           size=self._numPotentials)
 
-
     def compute(self, encodedInput, learn=True, asarray=False):
         """
         Returns a sparse distributed representation of the input as indices of active columns or if 'asarray'
@@ -58,7 +58,6 @@ class SpatialPooler():
             raise ValueError("Input dimensions do not match. Expecting %d but got %d" % (self._inputDim,
                                                                                          encodedInput.size))
 
-
         overlapScores = np.sum(np.multiply(self._permanences >= self._minPermanence, encodedInput), axis=1)
         activeCols = np.argsort(overlapScores)[:self._w]
 
@@ -73,7 +72,6 @@ class SpatialPooler():
             return columns
         else:
             return activeCols
-
 
     def getWidth(self):
         """Returns the number of columns in the Spatial Pooler"""

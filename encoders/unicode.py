@@ -1,6 +1,7 @@
 import json
 import numpy as np
 
+
 class UnicodeEncoder(object):
     """
     The Unicode encoder encodes a Unicode character into a sparse array of bits
