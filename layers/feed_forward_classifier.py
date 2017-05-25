@@ -14,7 +14,7 @@ class FeedForwardClassifier:
         :param alpha: (float) learning rate
         """
         self._columnDim = columnDim
-        self._weights = np.zeros(columnDim, dtype=np.float32)
+        self._weights = np.random.normal(size=columnDim)
         self._alpha = alpha
         self._lookup = {None: 0}
         self._revlookup = {0: None}
@@ -36,8 +36,9 @@ class FeedForwardClassifier:
                     index = 1
                 else:
                     index = self._weights.shape[0]
-                self._weights = np.vstack((self._weights, np.random.normal(scale=np.sqrt(1.0/len(self._weights)),
-                                                                           size=self._columnDim)))
+                self._weights = np.vstack((self._weights,
+                                           np.random.normal(scale=np.sqrt(1.0/(index + 1)),
+                                                            size=self._columnDim)))
                 self._revlookup[len(self._lookup)] = inputData
                 self._lookup[inputData] = len(self._lookup)
 
@@ -81,5 +82,5 @@ class FeedForwardClassifier:
         loss = -np.log(probabilities[label])
         gradients = probabilities
         gradients[label] -= 1
-        deltas = np.matmul(gradients.reshape((-1,1)), self._bits.reshape((1,-1)))
+        deltas = np.matmul(gradients.reshape((-1, 1)), self._bits.reshape((1, -1)))
         self._weights += -self._alpha * deltas
