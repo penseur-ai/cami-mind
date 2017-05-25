@@ -33,7 +33,7 @@ class TemporalMemory:
         if not isinstance(tm_cell, type(TMCell)):
             raise TypeError("Expected a TMCell class type not type %s" % type(tm_cell))
 
-        if not len(columnDim) or columnDim <= 0:
+        if columnDim <= 0 and not len(columnDim):
             raise ValueError("Number of columns or column dimensions must be greater than 0")
 
         if cellsPerColumn <= 0:
@@ -55,7 +55,7 @@ class TemporalMemory:
         self._permanenceDec = permanenceDec
 
         self._cells = [[tm_cell((columnDim, cellsPerColumn), minPermanence, activationThreshold,
-                               minActive, maxSegmentsPerCell, maxSynapsesPerSegment)
+                                minActive, maxSegmentsPerCell, maxSynapsesPerSegment)
                         for j in range(cellsPerColumn)]
                        for i in range(columnDim)]
 
@@ -102,7 +102,7 @@ class TemporalMemory:
         winnerCells = activeCells = np.logical_and(columns, predictiveStates)
         self._winnerCells = (np.flatnonzero(winnerCells)).tolist()
         predictedCells = np.transpose(np.nonzero(activeCells))
-        activeCellsPerColumn = np.sum(self._activeCells, axis=1) > 0
+        activeCellsPerColumn = np.sum(activeCells, axis=1) > 0
         burstingColumns = np.where(activeCellsPerColumn != columns[0])[0]
         activeCells[burstingColumns, :] = 1
         self._activeCells = (np.flatnonzero(activeCells)).tolist()

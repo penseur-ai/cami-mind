@@ -6,7 +6,8 @@ class SpatialPooler:
     This class implements the Spatial Pooling algorithm forming sparse distributed representations of sensory inputs
     """
 
-    def __init__(self, inputDim, columnDim, numActiveCols, pot_pct, minPermanence, activeInc, inactiveDec, seed=23):
+    def __init__(self, inputDim, columnDim=2048, numActiveCols=40, pot_pct=0.5,
+                 minPermanence=0.1, activeInc=0.05, inactiveDec=0.008, seed=23):
         """
         Constructs a Spatial Pooling layer and initializes variables
         :param inputDim: The dimensions of encoded input vectors

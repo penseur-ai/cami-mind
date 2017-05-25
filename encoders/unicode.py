@@ -11,7 +11,7 @@ class UnicodeEncoder(object):
     def __init__(self):
         self._n = 2048
         self._w = 37
-        with open('./data/chars.json', 'r') as fi:
+        with open('encoders/data/chars.json', 'r') as fi:
             lookup = json.load(fi)
         self._lookup = {int(key): val for key, val in lookup.items()}
 
@@ -37,9 +37,9 @@ class UnicodeEncoder(object):
         :return: A list of integers (indices of ON bits in 1-D array of length returned by :meth:`.getWidth`.)
         """
         try:
-            yield self._lookup[ord(inputData)]
+            return self._lookup[ord(inputData)]
         except KeyError:
-            yield []
+            return []
 
     def getWidth(self):
         """

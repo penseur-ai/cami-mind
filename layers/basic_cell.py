@@ -34,15 +34,16 @@ class BasicTMCell(TMCell):
         Using current active cells find cell's segment activity
         :param activeCells: List of indices of active cells in region
         """
-        activeStates = np.zeros(self._regionDim, dtype=np.int8).flatten()
-        activeStates[activeCells] = 1
-        activeStates = activeStates.reshape(self._regionDim)
+        if len(self._segmentPermanences):
+            activeStates = np.zeros(self._regionDim, dtype=np.int8).flatten()
+            activeStates[activeCells] = 1
+            activeStates = activeStates.reshape(self._regionDim)
 
-        connectedSynapses = (np.array(self._segmentPermanences) >= self._minPermanence) * activeStates
-        self._activeSegments = np.nonzero(np.sum(connectedSynapses, axis=(1, 2)) >= self._activationThreshold)
+            connectedSynapses = (np.array(self._segmentPermanences) >= self._minPermanence) * activeStates
+            self._activeSegments = np.nonzero(np.sum(connectedSynapses, axis=(1, 2)) >= self._activationThreshold)[0]
 
-        matchingSynapses = (np.array(self._segmentPermanences) > 0) * activeStates
-        self._matchingSegments = np.nonzero(np.sum(matchingSynapses, axis=(1, 2)) >= self._minActive)
+            matchingSynapses = (np.array(self._segmentPermanences) > 0) * activeStates
+            self._matchingSegments = np.nonzero(np.sum(matchingSynapses, axis=(1, 2)) >= self._minActive)[0]
 
     def adaptSegment(self, segment, previousCells, maxNewSynapses, initialPermanence,
                      permanenceInc, permanenceDec):
@@ -65,11 +66,12 @@ class BasicTMCell(TMCell):
         activeSynapsesCount = np.count_nonzero(updates > 0)
         newSynapsesCount = maxNewSynapses - activeSynapsesCount
         if newSynapsesCount > 0:
-            eligibleSynapses = np.logical_and(updates > 0, self._segmentPermanences == 0)
+            eligibleSynapses = np.logical_and(updates > 0, self._segmentPermanences[segment] == 0)
             eligibleSynapses = np.transpose(np.nonzero(eligibleSynapses))
-            np.random.shuffle(eligibleSynapses)
-            for i in range(newSynapsesCount):
-                self._segmentPermanences[segment][eligibleSynapses[i]] = initialPermanence
+            if len(eligibleSynapses):
+                np.random.shuffle(eligibleSynapses)
+                for i in range(newSynapsesCount):
+                    self._segmentPermanences[segment][eligibleSynapses[i]] = initialPermanence
 
     def adaptActiveSegments(self, prevActiveCells, maxNewSynapses, prevWinnerCells, initialPermanence,
                             permanenceInc, permanenceDec):
@@ -109,9 +111,10 @@ class BasicTMCell(TMCell):
         if newSynapseCount > 0:
             eligibleSynapses = np.logical_and(cells, self._segmentPermanences == 0)
             eligibleSynapses = np.transpose(np.nonzero(eligibleSynapses))
-            np.random.shuffle(eligibleSynapses)
-            for i in range(newSynapseCount):
-                self._segmentPermanences[segment][eligibleSynapses[i]] = initialPermanence
+            if len(eligibleSynapses):
+                np.random.shuffle(eligibleSynapses)
+                for i in range(newSynapseCount):
+                    self._segmentPermanences[segment][eligibleSynapses[i]] = initialPermanence
 
     def createSegment(self, maxNewSynapses, prevWinnerCells, initialPermanence):
         """
@@ -127,7 +130,7 @@ class BasicTMCell(TMCell):
             np.random.shuffle(eligibleSynapses)
             for i in range(newSynapsesCount):
                 synapses[eligibleSynapses[i]] = initialPermanence
-            self._segmentPermanences.append(synapses)
+            self._segmentPermanences.append(synapses.reshape(self._regionDim))
 
     def punishMatchingSegments(self, prevActiveCells, permanenceDec):
         """

@@ -1,1 +1,1 @@
-from unicode import UnicodeEncoder
+from encoders.unicode import UnicodeEncoder
