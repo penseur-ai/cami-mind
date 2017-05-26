@@ -127,7 +127,7 @@ class TemporalMemory:
                 cell.activateSegments(self._activeCells)
 
         predictiveStates = np.array([[cell.predictive() for cell in col] for col in self._cells], dtype=np.int8)
-        predictiveCells = np.flatnonzero(predictiveStates)
+        predictiveCells = (np.flatnonzero(predictiveStates)).tolist()
 
         return self._activeCells, predictiveCells
 

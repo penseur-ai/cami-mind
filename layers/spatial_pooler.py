@@ -70,9 +70,13 @@ class SpatialPooler:
         if asarray:
             columns = np.zeros(self._n, dtype=np.int8)
             columns[activeCols] = 1
-            return columns
+            return columns.tolist()
         else:
-            return activeCols
+            return activeCols.tolist()
+
+    def getInputDim(self):
+        """Returns the size of the encoded input"""
+        return self._inputDim
 
     def getWidth(self):
         """Returns the number of columns in the Spatial Pooler"""
