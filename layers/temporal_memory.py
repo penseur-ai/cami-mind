@@ -103,7 +103,7 @@ class TemporalMemory:
         self._winnerCells = (np.flatnonzero(winnerCells)).tolist()
         predictedCells = np.transpose(np.nonzero(activeCells))
         activeCellsPerColumn = np.sum(activeCells, axis=1) > 0
-        burstingColumns = np.where(activeCellsPerColumn != columns[0])[0]
+        burstingColumns = np.where(activeCellsPerColumn != columns[:, 0])[0]
         activeCells[burstingColumns, :] = 1
         self._activeCells = (np.flatnonzero(activeCells)).tolist()
         self._findWinnerCells(burstingColumns, prevWinnerCells, learn)
